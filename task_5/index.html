@@ -534,12 +534,14 @@
 <h2 id="_2">Код программы</h2>
 <h3 id="serverpy">Сервер (server.py)</h3>
 <pre><code>import socket
+import threading
 from urllib.parse import unquote, parse_qs
 
 HOST = &quot;127.0.0.1&quot;
-PORT = 8081
+PORT = 8080
 
 grades = []
+lock = threading.Lock()
 
 
 def build_html():
@@ -549,51 +551,6 @@ def build_html():
     &lt;head&gt;
         &lt;meta charset=&quot;UTF-8&quot;&gt;
         &lt;title&gt;Журнал оценок&lt;/title&gt;
-        &lt;style&gt;
-            body {
-                font-family: Arial, sans-serif;
-                background: #f7f7f7;
-                margin: 40px;
-            }
-            h1 {
-                text-align: center;
-                color: #2c3e50;
-            }
-            form {
-                text-align: center;
-                margin-bottom: 20px;
-            }
-            input[type=&quot;text&quot;] {
-                padding: 6px;
-                margin: 5px;
-            }
-            input[type=&quot;submit&quot;] {
-                padding: 6px 12px;
-                background: #2c3e50;
-                color: white;
-                border: none;
-                cursor: pointer;
-            }
-            input[type=&quot;submit&quot;]:hover {
-                background: #34495e;
-            }
-            table {
-                width: 60%;
-                margin: 0 auto;
-                border-collapse: collapse;
-                background: #fff;
-                box-shadow: 0 0 5px rgba(0,0,0,0.1);
-            }
-            th, td {
-                border: 1px solid #ddd;
-                padding: 10px;
-                text-align: center;
-            }
-            th {
-                background: #2c3e50;
-                color: #fff;
-            }
-        &lt;/style&gt;
     &lt;/head&gt;
     &lt;body&gt;
         &lt;h1&gt;Журнал оценок&lt;/h1&gt;
@@ -604,14 +561,14 @@ def build_html():
         &lt;/form&gt;
         &lt;hr&gt;
     &quot;&quot;&quot;
-
-    if grades:
-        html += &quot;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Дисциплина&lt;/th&gt;&lt;th&gt;Оценка&lt;/th&gt;&lt;/tr&gt;&quot;
-        for g in grades:
-            html += f&quot;&lt;tr&gt;&lt;td&gt;{g['discipline']}&lt;/td&gt;&lt;td&gt;{g['grade']}&lt;/td&gt;&lt;/tr&gt;&quot;
-        html += &quot;&lt;/table&gt;&quot;
-    else:
-        html += &quot;&lt;p style='text-align:center;'&gt;Пока нет данных.&lt;/p&gt;&quot;
+    with lock:
+        if grades:
+            html += &quot;&lt;table border='1'&gt;&lt;tr&gt;&lt;th&gt;Дисциплина&lt;/th&gt;&lt;th&gt;Оценка&lt;/th&gt;&lt;/tr&gt;&quot;
+            for g in grades:
+                html += f&quot;&lt;tr&gt;&lt;td&gt;{g['discipline']}&lt;/td&gt;&lt;td&gt;{g['grade']}&lt;/td&gt;&lt;/tr&gt;&quot;
+            html += &quot;&lt;/table&gt;&quot;
+        else:
+            html += &quot;&lt;p&gt;Пока нет данных.&lt;/p&gt;&quot;
 
     html += &quot;&lt;/body&gt;&lt;/html&gt;&quot;
     return html
@@ -634,7 +591,8 @@ def handle_request(request_text: str):
         discipline = unquote(params.get(&quot;discipline&quot;, [&quot;&quot;])[0])
         grade = unquote(params.get(&quot;grade&quot;, [&quot;&quot;])[0])
         if discipline and grade:
-            grades.append({&quot;discipline&quot;: discipline, &quot;grade&quot;: grade})
+            with lock:
+                grades.append({&quot;discipline&quot;: discipline, &quot;grade&quot;: grade})
 
     html = build_html()
     response = (
@@ -647,6 +605,22 @@ def handle_request(request_text: str):
     return response
 
 
+def handle_client(conn, addr):
+    print(f&quot;[+] Подключен клиент {addr}&quot;)
+    try:
+        data = conn.recv(4096).decode(&quot;utf-8&quot;)
+        if not data:
+            return
+        print(f&quot;[{addr}] {data.splitlines()[0]}&quot;)
+        response = handle_request(data)
+        conn.sendall(response.encode(&quot;utf-8&quot;))
+    except Exception as e:
+        print(f&quot;Ошибка: {e}&quot;)
+    finally:
+        conn.close()
+        print(f&quot;[-] Клиент {addr} отключился&quot;)
+
+
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -655,13 +629,10 @@ def main():
         print(f&quot;Сервер работает: http://{HOST}:{PORT}&quot;)
         while True:
             conn, addr = server.accept()
-            with conn:
-                data = conn.recv(4096).decode(&quot;utf-8&quot;)
-                if not data:
-                    continue
-                print(f&quot;[{addr}] {data.splitlines()[0]}&quot;)
-                response = handle_request(data)
-                conn.sendall(response.encode(&quot;utf-8&quot;))
+            thread = threading.Thread(
+                target=handle_client, args=(conn, addr), daemon=True
+            )
+            thread.start()
 
 
 if __name__ == &quot;__main__&quot;:

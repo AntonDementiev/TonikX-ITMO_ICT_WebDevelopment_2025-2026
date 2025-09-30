@@ -571,37 +571,49 @@
 <h2 id="_2">Код программы</h2>
 <h3 id="serverpy">Сервер (server.py)</h3>
 <pre><code>import socket
+import threading
 
 HOST = &quot;127.0.0.1&quot;
 PORT = 8080
 
+
+def handle_client(conn, addr):
+    print(f&quot;[+] Подключен клиент {addr}&quot;)
+    try:
+        request = conn.recv(1024).decode()
+        print(&quot;Запрос:\n&quot;, request)
+
+        try:
+            with open(&quot;index.html&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+                body = f.read()
+        except FileNotFoundError:
+            body = &quot;&lt;h1&gt;404 Not Found&lt;/h1&gt;&quot;
+
+        response = (
+            &quot;HTTP/1.1 200 OK\r\n&quot;
+            &quot;Content-Type: text/html; charset=utf-8\r\n&quot;
+            f&quot;Content-Length: {len(body.encode('utf-8'))}\r\n&quot;
+            &quot;\r\n&quot;
+            f&quot;{body}&quot;
+        )
+        conn.sendall(response.encode(&quot;utf-8&quot;))
+    except Exception as e:
+        print(&quot;Ошибка:&quot;, e)
+    finally:
+        conn.close()
+        print(f&quot;[-] Клиент {addr} отключился&quot;)
+
+
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((HOST, PORT))
-    server_socket.listen(1)
-    print(f&quot;Сервер запущен: http://{HOST}:{PORT}&quot;)
+    server_socket.listen()
+    print(f&quot;HTTP-сервер запущен: http://{HOST}:{PORT}&quot;)
 
     while True:
         conn, addr = server_socket.accept()
-        with conn:
-            print(f&quot;Подключен клиент: {addr}&quot;)
-            request = conn.recv(1024).decode()
-            print(&quot;Запрос:\n&quot;, request)
-
-            try:
-                with open(&quot;index.html&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
-                    body = f.read()
-            except FileNotFoundError:
-                body = &quot;&lt;h1&gt;404 Not Found&lt;/h1&gt;&quot;
-
-            response = (
-                &quot;HTTP/1.1 200 OK\r\n&quot;
-                &quot;Content-Type: text/html; charset=utf-8\r\n&quot;
-                f&quot;Content-Length: {len(body.encode('utf-8'))}\r\n&quot;
-                &quot;\r\n&quot;
-                f&quot;{body}&quot;
-            )
-
-            conn.sendall(response.encode(&quot;utf-8&quot;))
+        thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+        thread.start()
 </code></pre>
 <h3 id="clientpy">Клиент (client.py)</h3>
 <pre><code>import socket
@@ -614,7 +626,6 @@ request = &quot;GET / HTTP/1.1\r\nHost: localhost\r\n\r\n&quot;
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
     client_socket.connect((HOST, PORT))
     client_socket.sendall(request.encode())
-
     response = client_socket.recv(4096).decode()
     print(&quot;Ответ сервера:\n&quot;)
     print(response)
