@@ -557,6 +557,7 @@
 <h2 id="_2">Код программы</h2>
 <h3 id="serverpy">Сервер (server.py)</h3>
 <pre><code>import socket
+import threading
 import math
 
 HOST = &quot;127.0.0.1&quot;
@@ -576,22 +577,33 @@ def solve_quadratic(a: float, b: float, c: float) -&gt; str:
         return f&quot;Два корня: {x1}, {x2}&quot;
 
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(1)
-    print(f&quot;Сервер слушает на {HOST}:{PORT}&quot;)
-
-    conn, addr = server_socket.accept()
-    with conn:
-        print(f&quot;Подключен клиент: {addr}&quot;)
+def handle_client(conn, addr):
+    print(f&quot;[+] Подключен клиент {addr}&quot;)
+    try:
         data = conn.recv(1024).decode()
-        print(&quot;Получено:&quot;, data)
-
-        parts = data.split()
-        a, b, c = float(parts[0]), float(parts[1]), float(parts[2])
-
+        if not data:
+            return
+        print(f&quot;[{addr}] {data}&quot;)
+        a, b, c = map(float, data.split())
         result = solve_quadratic(a, b, c)
         conn.sendall(result.encode())
+    except Exception as e:
+        print(f&quot;Ошибка с клиентом {addr}: {e}&quot;)
+    finally:
+        conn.close()
+        print(f&quot;[-] Клиент {addr} отключился&quot;)
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen()
+    print(f&quot;Сервер слушает на {HOST}:{PORT}&quot;)
+
+    while True:
+        conn, addr = server_socket.accept()
+        thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+        thread.start()
 </code></pre>
 <h3 id="clientpy">Клиент (client.py)</h3>
 <pre><code>import socket
@@ -601,18 +613,21 @@ PORT = 12345
 
 print(&quot;Решение квадратного уравнения вида ax^2 + bx + c = 0&quot;)
 
-a = input(&quot;Введите a: &quot;)
-b = input(&quot;Введите b: &quot;)
-c = input(&quot;Введите c: &quot;)
+while True:
+    a = input(&quot;Введите a (или q для выхода): &quot;)
+    if a == &quot;q&quot;:
+        break
+    b = input(&quot;Введите b: &quot;)
+    c = input(&quot;Введите c: &quot;)
 
-request = f&quot;{a} {b} {c}&quot;
+    request = f&quot;{a} {b} {c}&quot;
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-    client_socket.connect((HOST, PORT))
-    client_socket.sendall(request.encode())
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        client_socket.connect((HOST, PORT))
+        client_socket.sendall(request.encode())
 
-    data = client_socket.recv(1024).decode()
-    print(&quot;Результат:&quot;, data)
+        data = client_socket.recv(1024).decode()
+        print(&quot;Результат:&quot;, data)
 </code></pre>
 <h2 id="_3">Запуск</h2>
 <ol>

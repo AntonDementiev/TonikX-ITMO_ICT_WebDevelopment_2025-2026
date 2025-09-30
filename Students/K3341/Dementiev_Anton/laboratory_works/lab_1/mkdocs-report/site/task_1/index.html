@@ -557,6 +557,7 @@
 <h2 id="_2">Код программы</h2>
 <h3 id="serverpy">Сервер (server.py)</h3>
 <pre><code>import socket
+import threading
 
 HOST = &quot;127.0.0.1&quot;
 PORT = 12345
@@ -564,12 +565,18 @@ PORT = 12345
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind((HOST, PORT))
 
-print(f&quot;Сервер запущен на {HOST}:{PORT}&quot;)
+print(f&quot;UDP-сервер запущен на {HOST}:{PORT}&quot;)
 
-data, addr = server_socket.recvfrom(1024)
-print(data.decode())
 
-server_socket.sendto(&quot;Hello, client&quot;.encode(), addr)
+def handle_client(data, addr):
+    print(f&quot;[{addr}] {data.decode()}&quot;)
+    server_socket.sendto(f&quot;Эхо: {data.decode()}&quot;.encode(), addr)
+
+
+while True:
+    data, addr = server_socket.recvfrom(1024)
+    thread = threading.Thread(target=handle_client, args=(data, addr), daemon=True)
+    thread.start()
 </code></pre>
 <h3 id="clientpy">Клиент (client.py)</h3>
 <pre><code>import socket
@@ -579,11 +586,15 @@ PORT = 12345
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-client_socket.sendto(&quot;Hello, server&quot;.encode(), (HOST, PORT))
+while True:
+    msg = input(&quot;Введите сообщение (/quit для выхода): &quot;)
+    if msg == &quot;/quit&quot;:
+        break
+    client_socket.sendto(msg.encode(), (HOST, PORT))
+    data, _ = client_socket.recvfrom(1024)
+    print(&quot;Ответ сервера:&quot;, data.decode())
 
-data, _ = client_socket.recvfrom(1024)
-print(data.decode())
-
+client_socket.close()
 </code></pre>
 <h2 id="_3">Запуск</h2>
 <ol>

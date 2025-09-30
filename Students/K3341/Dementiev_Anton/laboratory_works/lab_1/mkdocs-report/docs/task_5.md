@@ -15,12 +15,14 @@
 
 ```
 import socket
+import threading
 from urllib.parse import unquote, parse_qs
 
 HOST = "127.0.0.1"
-PORT = 8081
+PORT = 8080
 
 grades = []
+lock = threading.Lock()
 
 
 def build_html():
@@ -30,51 +32,6 @@ def build_html():
     <head>
         <meta charset="UTF-8">
         <title>Журнал оценок</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background: #f7f7f7;
-                margin: 40px;
-            }
-            h1 {
-                text-align: center;
-                color: #2c3e50;
-            }
-            form {
-                text-align: center;
-                margin-bottom: 20px;
-            }
-            input[type="text"] {
-                padding: 6px;
-                margin: 5px;
-            }
-            input[type="submit"] {
-                padding: 6px 12px;
-                background: #2c3e50;
-                color: white;
-                border: none;
-                cursor: pointer;
-            }
-            input[type="submit"]:hover {
-                background: #34495e;
-            }
-            table {
-                width: 60%;
-                margin: 0 auto;
-                border-collapse: collapse;
-                background: #fff;
-                box-shadow: 0 0 5px rgba(0,0,0,0.1);
-            }
-            th, td {
-                border: 1px solid #ddd;
-                padding: 10px;
-                text-align: center;
-            }
-            th {
-                background: #2c3e50;
-                color: #fff;
-            }
-        </style>
     </head>
     <body>
         <h1>Журнал оценок</h1>
@@ -85,14 +42,14 @@ def build_html():
         </form>
         <hr>
     """
-
-    if grades:
-        html += "<table><tr><th>Дисциплина</th><th>Оценка</th></tr>"
-        for g in grades:
-            html += f"<tr><td>{g['discipline']}</td><td>{g['grade']}</td></tr>"
-        html += "</table>"
-    else:
-        html += "<p style='text-align:center;'>Пока нет данных.</p>"
+    with lock:
+        if grades:
+            html += "<table border='1'><tr><th>Дисциплина</th><th>Оценка</th></tr>"
+            for g in grades:
+                html += f"<tr><td>{g['discipline']}</td><td>{g['grade']}</td></tr>"
+            html += "</table>"
+        else:
+            html += "<p>Пока нет данных.</p>"
 
     html += "</body></html>"
     return html
@@ -115,7 +72,8 @@ def handle_request(request_text: str):
         discipline = unquote(params.get("discipline", [""])[0])
         grade = unquote(params.get("grade", [""])[0])
         if discipline and grade:
-            grades.append({"discipline": discipline, "grade": grade})
+            with lock:
+                grades.append({"discipline": discipline, "grade": grade})
 
     html = build_html()
     response = (
@@ -128,6 +86,22 @@ def handle_request(request_text: str):
     return response
 
 
+def handle_client(conn, addr):
+    print(f"[+] Подключен клиент {addr}")
+    try:
+        data = conn.recv(4096).decode("utf-8")
+        if not data:
+            return
+        print(f"[{addr}] {data.splitlines()[0]}")
+        response = handle_request(data)
+        conn.sendall(response.encode("utf-8"))
+    except Exception as e:
+        print(f"Ошибка: {e}")
+    finally:
+        conn.close()
+        print(f"[-] Клиент {addr} отключился")
+
+
 def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -136,13 +110,10 @@ def main():
         print(f"Сервер работает: http://{HOST}:{PORT}")
         while True:
             conn, addr = server.accept()
-            with conn:
-                data = conn.recv(4096).decode("utf-8")
-                if not data:
-                    continue
-                print(f"[{addr}] {data.splitlines()[0]}")
-                response = handle_request(data)
-                conn.sendall(response.encode("utf-8"))
+            thread = threading.Thread(
+                target=handle_client, args=(conn, addr), daemon=True
+            )
+            thread.start()
 
 
 if __name__ == "__main__":

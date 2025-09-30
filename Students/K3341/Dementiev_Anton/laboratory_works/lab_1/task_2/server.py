@@ -1,4 +1,5 @@
 import socket
+import threading
 import math
 
 HOST = "127.0.0.1"
@@ -18,19 +19,30 @@ def solve_quadratic(a: float, b: float, c: float) -> str:
         return f"Два корня: {x1}, {x2}"
 
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(1)
-    print(f"Сервер слушает на {HOST}:{PORT}")
-
-    conn, addr = server_socket.accept()
-    with conn:
-        print(f"Подключен клиент: {addr}")
+def handle_client(conn, addr):
+    print(f"[+] Подключен клиент {addr}")
+    try:
         data = conn.recv(1024).decode()
-        print("Получено:", data)
-
-        parts = data.split()
-        a, b, c = float(parts[0]), float(parts[1]), float(parts[2])
-
+        if not data:
+            return
+        print(f"[{addr}] {data}")
+        a, b, c = map(float, data.split())
         result = solve_quadratic(a, b, c)
         conn.sendall(result.encode())
+    except Exception as e:
+        print(f"Ошибка с клиентом {addr}: {e}")
+    finally:
+        conn.close()
+        print(f"[-] Клиент {addr} отключился")
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen()
+    print(f"Сервер слушает на {HOST}:{PORT}")
+
+    while True:
+        conn, addr = server_socket.accept()
+        thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+        thread.start()
