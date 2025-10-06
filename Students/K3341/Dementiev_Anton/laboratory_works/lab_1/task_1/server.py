@@ -1,21 +1,18 @@
 import socket
-import threading
-
-HOST = "127.0.0.1"
-PORT = 12345
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_socket.bind((HOST, PORT))
 
-print(f"UDP-сервер запущен на {HOST}:{PORT}")
+server_address = ('localhost', 12345)
+server_socket.bind(server_address)
 
+print("Сервер запущен и ожидает сообщения...")
 
-def handle_client(data, addr):
-    print(f"[{addr}] {data.decode()}")
-    server_socket.sendto(f"Эхо: {data.decode()}".encode(), addr)
+data, client_address = server_socket.recvfrom(1024)
+print("Сообщение от клиента:", data.decode())
 
+message = "Hello, client"
+server_socket.sendto(message.encode(), client_address)
 
-while True:
-    data, addr = server_socket.recvfrom(1024)
-    thread = threading.Thread(target=handle_client, args=(data, addr), daemon=True)
-    thread.start()
+print("Ответ отправлен клиенту.")
+
+server_socket.close()
