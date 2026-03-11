@@ -2,9 +2,9 @@
 
 **Автор:** Дементьев Антон Павлович  
 **Группа:** К3341  
-**Год:** 2026  
+**Год:** 2026
 
-Ссылка на отчет: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2027/
+Ссылка на отчет: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2026/
 
 Добро пожаловать в документацию по лабораторной работе 4! Здесь представлены проекты, включающие как серверную часть (Django REST Framework API), так и клиентскую часть (Vue.js приложение).
 

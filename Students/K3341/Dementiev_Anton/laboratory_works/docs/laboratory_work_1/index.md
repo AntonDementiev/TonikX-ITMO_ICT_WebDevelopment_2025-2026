@@ -6,7 +6,7 @@
 
 Год: 2025
 
-Ссылка на отчет: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2027/
+Ссылка на отчет: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2026/
 
 ## Цели работы
 

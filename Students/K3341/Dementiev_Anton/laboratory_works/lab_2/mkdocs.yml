@@ -1,8 +1,8 @@
 site_name: Лабораторная работа 2
 site_description: Django проекты - Доска домашних заданий и система управления автовладельцами
 site_author: Дементьев Антон Павлович
-site_url: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2027/
-repo_url: https://github.com/AntonDementiev/TonikX-ITMO_ICT_WebDevelopment_2025-2027
+site_url: https://antondementiev.github.io/TonikX-ITMO_ICT_WebDevelopment_2025-2026/
+repo_url: https://github.com/AntonDementiev/TonikX-ITMO_ICT_WebDevelopment_2025-2026
 
 theme:
   name: material
