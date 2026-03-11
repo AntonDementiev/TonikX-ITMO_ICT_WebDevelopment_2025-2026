@@ -12,7 +12,7 @@
 ### 1.1. Активация виртуального окружения Python
 
 ```bash
-cd /Users/simon/TonikX-ITMO_ICT_WebDevelopment_2025-2026
+cd /Users/anton_dem/TonikX-ITMO_ICT_WebDevelopment_2025-2026
 source venv/bin/activate
 ```
 
@@ -75,7 +75,7 @@ Backend будет доступен по адресу: **http://localhost:8000**
 ### 3.2. Переход в директорию Frontend
 
 ```bash
-cd /Users/simon/TonikX-ITMO_ICT_WebDevelopment_2025-2026/students/K3341/laboratory_works/Dementev_Anton/laboratory_work_4/frontend
+cd /Users/anton/TonikX-ITMO_ICT_WebDevelopment_2025-2026/students/K3341/laboratory_works/Dementev_Anton/laboratory_work_4/frontend
 ```
 
 ### 3.3. Установка зависимостей Node.js
